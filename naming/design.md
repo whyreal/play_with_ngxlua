@@ -1,5 +1,5 @@
-基于ngx_lua实现一个restful风格的，带view的，简单d的，k/v系统。
->初衷使作为naming service使用（虽然我不是很清楚名字服务的定义）
+基于ngx_lua实现一个restful风格的，带view的，简单的，k/v系统。
+>初衷是作为naming service使用（虽然我不是很清楚名字服务的定义）
 
 应该具备以下功能：
 
