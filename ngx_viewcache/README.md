@@ -11,10 +11,11 @@ ngx_viewcache是一个基于ngx_lua实现的／restful风格的／带view的k/v�
 1. 验证／数据隔离。所有api，所有数据都是公开的。
 
 # API
-**All "${view}" is optional. Default view: default**
+**Url 中的 "${view}" 是可选的. 默认view: default**
 
 ## Listing
 - 列出当前某个资源的所有key
+
 ### Signature
 request
 
@@ -28,7 +29,7 @@ response
     "${key2}"
     ...
 
-### example
+### Example
 request
 
     GET /example.com/db/listing HTTP/1.1
@@ -59,26 +60,26 @@ response
 
 ### Example
 
-* request from host belong view1
+request from host belong view1
 
-        GET /example.com/db HTTP/1.1
+    GET /example.com/db HTTP/1.1
 
-  response
+response
 
-        HTTP/1.1 200 OK
+    HTTP/1.1 200 OK
 
-        1.1.1.1:3306
+    1.1.1.1:3306
 
 -----------------------
-* request form host belong view2
+request form host belong view2
 
-        GET /example.com/db HTTP/1.1
+    GET /example.com/db HTTP/1.1
     
-  response
+response
 
-        HTTP/1.1 200 OK
+    HTTP/1.1 200 OK
     
-        2.2.2.2:3306
+    2.2.2.2:3306
 
 ## SET & UPDATE
 
