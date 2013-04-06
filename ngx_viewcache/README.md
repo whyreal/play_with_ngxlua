@@ -106,7 +106,7 @@ request
 
 response
 
-    HTTP/1.1 200 OK
+    ""
 
 ## DELETE
 delete操作又一些限制条件：必须指定view，删除default前必须删除其他view的数据
@@ -130,7 +130,7 @@ request
 
 response
 
-    HTTP/1.1 200 OK
+    ""
 
 # Config nginx
 
