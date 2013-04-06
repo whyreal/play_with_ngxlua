@@ -14,9 +14,7 @@
 
 
 # API
-**All "${view}" is optional, default all.**
-
-**Default view: __default**
+**All "${view}" is optional. Default view: __default**
 
 ## GET
 
