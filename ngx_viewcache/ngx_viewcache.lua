@@ -11,6 +11,8 @@ local config = require (... .. "_config")
 module(...)
 
 local DEFAULT_VIEW = 'default'
+local DEFAULT_DICT = 'ngx_viewcache_db'
+local KEY_SEPARATOR = ':'
 
 local function search_view(ip) --{{{1
     for k, v in pairs(config.views) do
@@ -40,12 +42,12 @@ handlers.GET = function (dict, options) --{{{2
     if not options.view then options.view = DEFAULT_VIEW end
     joint_key(options)
 
-    local res = dict:get(options.key)
+    local ret = dict:get(options.key)
 
-    if not res then res = dict:get(options.default_key) end
-    if not res then res = "" end
+    if not ret then ret = dict:get(options.default_key) end
+    if not ret then ret = "" end
 
-    return res
+    ngx.say(ret)
 end
 
 handlers.POST = function (dict, options) --{{{2
@@ -53,12 +55,13 @@ handlers.POST = function (dict, options) --{{{2
     joint_key(options)
 
     data, err = utils.get_request_body()
-    err and utils.handle_error(err)
+    if err then
+        utils.handle_error(err)
+    end
 
     dict:set(options.key, data)
     -- default view should not be empty
     dict:add(options.default_key, data)
-    return ""
 end
 
 handlers.DELETE = function (dict, options) --{{{2
@@ -77,7 +80,6 @@ handlers.DELETE = function (dict, options) --{{{2
     end
 
     dict:delete(options.key)
-    return ""
 end
 
 handlers.listing = function (dict, options) --{{{2
@@ -88,51 +90,57 @@ handlers.listing = function (dict, options) --{{{2
             ngx.say(path)
         end
     end
-    return ""
 end
 
 function extract_opt(base, dynamic) --{{{1
     dynamic = dynamic or false
 
     uri_args, err = utils.parse_url_args(base)
-    err and utils.handle_error(err)
+    if err then
+        utils.handle_error(err)
+    end
 
-    local res = {
+    local ret = {
         namespace = uri_args[1],
         resource = uri_args[2],
         view = uri_args[3],
     }
 
-    if not res.namespace then
+    if not ret.namespace then
         return nil, utils.gen_error(400, "no namespace")
     end
 
-    if not res.resource then
+    if not ret.resource then
         return nil, utils.gen_error(400, "no resource")
     end
 
-    if not res.view and dynamic then
-        res.view = search_view(ngx.var.remote_addr)
+    if not ret.view and dynamic then
+        ret.view = search_view(ngx.var.remote_addr)
     end
 
-    return res
+    return ret
 end
 
 function handle(uri_prefix, dict_name) --{{{1
+    if not dict_name then dict_name = DEFAULT_DICT end
     local method = ngx.req.get_method()
 
     -- parse uri
+    local opt, err
     if method == 'GET' then
-        local opt, err = extract_opt(uri_prefix, true)
+        opt, err = extract_opt(uri_prefix, true)
     else
-        local opt, err = extract_opt(uri_prefix)
+        opt, err = extract_opt(uri_prefix)
     end
-    err and utils.handle_error(err)
+    if err then
+        utils.handle_error(err)
+    end
 
     -- handle request
     local result, err = handlers[method](ngx.shared[dict_name], opt)
-    err and utils.handle_error(err)
+    if err then
+        utils.handle_error(err)
+    end
 
-    ngx.say(result)
     ngx.exit(ngx.OK)
 end

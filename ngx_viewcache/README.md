@@ -144,16 +144,20 @@ response
         location ^~ /ngx_viewcache {
             content_by_lua '
                 require "ngx_viewcache"
-                ngx_viewcache.handle("/viewcache", "viewdb")';
+                ngx_viewcache.handle("/ngx_viewcache")';
         }
 
-        location = /path { # just for debug, display ngx_lua package path
-            content_by_lua 'ngx.say(package.path)';
-        }
-
-        location = /remote { # just for debug, display ip addr of request.
+        location = /remote_addr { # just for debug, display ip addr of request.
             content_by_lua 'ngx.say(ngx.var.remote_addr)';
+        }
+
+        location = /ngx_viewcache_ft { # just for functional test
+            content_by_lua '
+                require "ngx_viewcache_ft"
+                ngx_viewcache_ft.ft()
+            ';
         }
     }
 
 可以通过/ngx_viewcache/example.com/db/view 访问api。
+

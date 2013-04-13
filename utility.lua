@@ -1,22 +1,23 @@
 local string = string
 local table = table
+local assert = assert
 
 local ngx = require "ngx"
 module(...)
 
 local DEFAULT_SEPARATOR = ':'
 
-local function handle_error(e) --{{{1
+function handle_error(e) --{{{1
     ngx.status = e.status
     ngx.say(e.msg)
     ngx.exit(ngx.OK)
 end
 
-local function gen_error(code, msg) --{{{1
+function gen_error(code, msg) --{{{1
     return {status = code, msg = msg}
 end
 
-local function parse_url_args(base, separator) --{{{1
+function parse_url_args(base, separator) --{{{1
     separator = separator and separator or DEFAULT_SEPARATOR
     uri = ngx.var.uri
 
@@ -31,9 +32,10 @@ local function parse_url_args(base, separator) --{{{1
 
             table.insert(uri_args, w)
         end)
+    return uri_args
 end
 
-local function get_request_body() --{{{1
+function get_request_body() --{{{1
     ngx.req.read_body()
     local data = ngx.req.get_body_data()
     if not data then
@@ -43,4 +45,22 @@ local function get_request_body() --{{{1
     if string.len(data) == 0 then
         return nil, gen_error(400, "empty body")
     end
+    return data
+end
+
+
+function _assert(uri, promise, data)
+    local method
+    if data == ngx.HTTP_DELETE then
+        method = data
+    elseif data then
+        method = ngx.HTTP_POST
+    else
+        method = ngx.HTTP_GET
+    end
+
+    ngx.log(ngx.ERR, uri)
+    local res = ngx.location.capture(uri, { method = method, body = data })
+
+    assert(res.body == promise, uri .. '. res: ' .. res.body .. ' and promise: ' .. promise .. '.')
 end
