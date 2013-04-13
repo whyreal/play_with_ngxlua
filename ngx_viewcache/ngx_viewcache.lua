@@ -1,26 +1,18 @@
-local ngx = require "ngx"
+-- 可以用module(..., package.seeall)，但是副作用忒大。
 local string = string
 local table = table
 local pairs = pairs
 local ipairs = ipairs
+
+local utils = require "utility"
+local ngx = require "ngx"
 local config = require (... .. "_config")
 
 module(...)
 
-local default_view = 'default'
-local SEPARATOR = ':'
+local DEFAULT_VIEW = 'default'
 
-local function gen_error(code, msg)
-    return {status = code, msg = msg}
-end
-
-local function handle_error(e)
-    ngx.status = e.status
-    ngx.say(e.msg)
-    ngx.exit(ngx.OK)
-end
-
-local function search_view(ip)
+local function search_view(ip) --{{{1
     for k, v in pairs(config.views) do
         if string.match(ip, "^" .. k) then
             return v
@@ -28,20 +20,24 @@ local function search_view(ip)
     end
 end
 
-local function joint_key(opt)
-    opt.key = table.concat({opt.namespace, opt.resource, opt.view}, SEPARATOR)
+local function joint_key(opt) --{{{1
+    opt.key = table.concat({
+        opt.namespace, opt.resource, opt.view
+    }, KEY_SEPARATOR)
+
     opt.default_key = table.concat({
-        opt.namespace, opt.resource, default_view
-    }, SEPARATOR)
+        opt.namespace, opt.resource, DEFAULT_VIEW
+    }, KEY_SEPARATOR)
 end
 
-local handlers = {}
-handlers.GET = function (dict, options)
+local handlers = {} --{{{1
+
+handlers.GET = function (dict, options) --{{{2
     if options.view == 'listing' then
         return handlers.listing(dict, options)
     end
 
-    if not options.view then options.view = default_view end
+    if not options.view then options.view = DEFAULT_VIEW end
     joint_key(options)
 
     local res = dict:get(options.key)
@@ -52,18 +48,12 @@ handlers.GET = function (dict, options)
     return res
 end
 
-handlers.POST = function (dict, options)
-    if not options.view then return nil, gen_error(400, "no view") end
+handlers.POST = function (dict, options) --{{{2
+    if not options.view then return nil, utils.gen_error(400, "no view") end
     joint_key(options)
 
-    ngx.req.read_body()
-    local data = ngx.req.get_body_data()
-    if not data then
-        return nil, gen_error(500, "post data size is zero or bigger than nginx client_body_buffer_size")
-    end
-    if string.len(data) == 0 then
-        return nil, gen_error(400, "empty body")
-    end
+    data, err = utils.get_request_body()
+    err and utils.handle_error(err)
 
     dict:set(options.key, data)
     -- default view should not be empty
@@ -71,15 +61,17 @@ handlers.POST = function (dict, options)
     return ""
 end
 
-handlers.DELETE = function (dict, options)
-    if not options.view then return nil, gen_error(400, "no view") end
+handlers.DELETE = function (dict, options) --{{{2
+    if not options.view then return nil, utils.gen_error(400, "no view") end
     joint_key(options)
 
-    if options.view == default_view then
+    if options.view == DEFAULT_VIEW then
+        -- check whether the view has other view beside the default!
         for _, k in ipairs(dict:get_keys(0)) do
             if string.match(k, options.resource) and
                     k ~= options.default_key then
-                return nil, gen_error(400, "view data should be deleted first before delete the default")
+
+                return nil, utils.gen_error(400, "view data should be deleted first before delete the default")
             end
         end
     end
@@ -88,41 +80,35 @@ handlers.DELETE = function (dict, options)
     return ""
 end
 
-handlers.listing = function (dict, options)
+handlers.listing = function (dict, options) --{{{2
     local path
     for _, k in ipairs(dict:get_keys(0)) do
         if string.match(k, options.resource) then
-            path = string.gsub(k, SEPARATOR, '/')
+            path = string.gsub(k, KEY_SEPARATOR, '/')
             ngx.say(path)
         end
     end
     return ""
 end
 
-function parse_uri(prefix, uri, dynamic)
+function extract_opt(base, dynamic) --{{{1
     dynamic = dynamic or false
 
-    if string.match(uri, SEPARATOR) then
-        return nil, gen_error(400, "Url can't contain ':'")
-    end
+    uri_args, err = utils.parse_url_args(base)
+    err and utils.handle_error(err)
 
-    local _ = {}
-    string.gsub( -- strip and split the uri
-        string.sub(uri, string.len(prefix) + 1), '[^/' .. SEPARATOR .. ']+', function(w)
-            table.insert(_, w)
-        end)
     local res = {
-        namespace = _[1],
-        resource = _[2],
-        view = _[3],
+        namespace = uri_args[1],
+        resource = uri_args[2],
+        view = uri_args[3],
     }
 
     if not res.namespace then
-        return nil, gen_error(400, "no namespace")
+        return nil, utils.gen_error(400, "no namespace")
     end
 
     if not res.resource then
-        return nil, gen_error(400, "no resource")
+        return nil, utils.gen_error(400, "no resource")
     end
 
     if not res.view and dynamic then
@@ -132,23 +118,21 @@ function parse_uri(prefix, uri, dynamic)
     return res
 end
 
-function handle(uri_prefix, dict_name)
-    local opt, err
+function handle(uri_prefix, dict_name) --{{{1
     local method = ngx.req.get_method()
-    if method == 'GET' then
-        opt, err = parse_uri(uri_prefix, ngx.var.uri, true)
-    else
-        opt, err = parse_uri(uri_prefix, ngx.var.uri)
-    end
-    if not opt then
-        handle_error(err)
-    end
 
-    local result, err = handlers[method](ngx.shared[dict_name], opt)
-    if result then
-        ngx.say(result)
-        ngx.exit(ngx.OK)
+    -- parse uri
+    if method == 'GET' then
+        local opt, err = extract_opt(uri_prefix, true)
     else
-        handle_error(err)
+        local opt, err = extract_opt(uri_prefix)
     end
+    err and utils.handle_error(err)
+
+    -- handle request
+    local result, err = handlers[method](ngx.shared[dict_name], opt)
+    err and utils.handle_error(err)
+
+    ngx.say(result)
+    ngx.exit(ngx.OK)
 end

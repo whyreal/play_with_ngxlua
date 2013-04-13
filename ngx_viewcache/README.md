@@ -19,7 +19,7 @@ ngx_viewcache是一个基于ngx_lua实现的／restful风格的／带view的k/v�
 ### Signature
 request
 
-    GET /"${name space}"/"${resource}/listing" HTTP/1.1
+    GET /"${name space}"/"${resource}"/listing HTTP/1.1
 
 response
 
@@ -134,10 +134,26 @@ response
 
 # Config nginx
 
-    location ^~ /viewcache {
-        content_by_lua '
-            require "ngx_viewcache"
-            ngx_viewcache.handle("/viewcache", "viewdb")';
+    #lua_code_cache off;
+    init_by_lua 'require "ngx_viewcache"';
+    lua_package_path '/usr/local/nginx/play_with_ngxlua/ngx_viewcache/?.lua;;';
+
+    lua_shared_dict viewdb 10m; # declare a dict
+
+    server {
+        location ^~ /ngx_viewcache {
+            content_by_lua '
+                require "ngx_viewcache"
+                ngx_viewcache.handle("/viewcache", "viewdb")';
+        }
+
+        location = /path { # just for debug, display ngx_lua package path
+            content_by_lua 'ngx.say(package.path)';
+        }
+
+        location = /remote { # just for debug, display ip addr of request.
+            content_by_lua 'ngx.say(ngx.var.remote_addr)';
+        }
     }
 
-可以通过/viewcache/example.com/db/view 访问api。
+可以通过/ngx_viewcache/example.com/db/view 访问api。
