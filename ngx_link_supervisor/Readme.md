@@ -1,6 +1,6 @@
 [[提供一个开关来控制rewrite行为：是正常rewrite还是跳转到其他页面。可以用来动态的控制后端http接口是否可用。]]
 
-# API
+# HTTP API
 
 ## Status
     >check or update supervisor status, 0 for excute, 1 for ignore, default 0.
@@ -27,25 +27,24 @@ response
 
     0
 
-# Nginx config
+# Config API
+## ngx_link_supervisor.rewrite
 
-    lua_shared_dict ngx_link_supervisor_db 10m;
+    rewrite_by_lua 'ngx_link_supervisor.rewrite("${from}", "${to}", "${flag}", ${jump})';
 
-    #lua_code_cache off;
-    lua_package_path '/usr/local/nginx/play_with_ngxlua/ngx_link_supervisor/?.lua;/usr/local/nginx/play_with_ngxlua/ngx_viewcache/?.lua;/usr/local/nginx/play_with_ngxlua/?.lua;;';
-    init_by_lua 'require "ngx_link_supervisor"';
+Example:
 
-    location ^~ /ngx_link_supervisor_status { # check supervisor status
-        content_by_lua 'ngx_link_supervisor.status("/ngx_link_supervisor_status")';
-    }
+    rewrite_by_lua 'ngx_link_supervisor.rewrite("/(.*)_test", "/$1_rewrited", "rewrite1", true)';
+    
+    > The key 'rewrite1' will be checked, if it is 0, this rewrite directive will be ignore.
 
-    location = /ngx_link_supervisor_test {
-        access_by_lua 'ngx_link_supervisor.deny("access1")';
-        rewrite_by_lua 'ngx_link_supervisor.rewrite("/(.*)", "/$1_rewrited", "rewrite1", true)';
-        content_by_lua 'ngx.say("hello from location supervisor")';
-    }
+# ngx_link_supervisor.deny
 
-    location ^~ /ngx_link_supervisor_test_rewrited {
-        content_by_lua 'ngx.say("rewrited by ngx_lua");';
-    }
+    access_by_lua 'ngx_link_supervisor.deny("${flag}")';
+
+Example:
+
+    access_by_lua 'ngx_link_supervisor.deny("access1")';
+    
+    > The key 'access1' will be checked, if it is 0, this access directive will be ignore.
 
