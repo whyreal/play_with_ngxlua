@@ -3,7 +3,7 @@
 # HTTP API
 
 ## Status
-    >check or update supervisor status, 0 for excute, 1 for ignore, default 0.
+>check or update supervisor status, 1 for excute, 0 for ignore, default 1.
 
 request
 
